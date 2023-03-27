@@ -1,0 +1,10 @@
+version: "3"
+dotenv:
+  - .env
+
+includes:
+  migrate: .taskfiles/migrate-tasks.yml
+  sqlc: .taskfiles/sqlc-tasks.yml
+
+tasks:
+  default: task -l
