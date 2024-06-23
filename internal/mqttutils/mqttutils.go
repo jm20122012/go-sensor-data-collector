@@ -3,12 +3,12 @@ package mqttutils
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"strconv"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
 )
 
 var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
@@ -35,9 +35,10 @@ func CreateMqttClient(connectLostHandler mqtt.ConnectionLostHandler, msgHandler 
 	if err != nil {
 		log.Println("Error converting MQTT port to INT")
 	}
+	clientID := fmt.Sprintf("goSensorDataCollector-%s", uuid.New().String())
+	log.Println("Client ID: ", clientID)
 	log.Println("MQTT Broker IP: ", mqttBroker)
 	log.Println("MQTT Broker Port: ", mqttPort)
-	clientID := fmt.Sprintf("goSensorDataCollector-%d", rand.Intn(1000))
 
 	// // -------------------- MQTT Setup -------------------- //
 	mqttListenerOpts := mqtt.NewClientOptions()
