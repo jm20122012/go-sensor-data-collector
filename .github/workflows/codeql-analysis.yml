@@ -4,7 +4,6 @@ on:
   push:
     branches: [ "main", "dev" ]
   pull_request:
-    # The branches below must be a subset of the branches above
     branches: [ "main", "dev" ]
   schedule:
     - cron: '0 0 * * 1' # Runs every Monday at 00:00 UTC
@@ -30,13 +29,23 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: '^1.16'
+
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v2
       with:
         languages: ${{ matrix.language }}
 
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v2
+    - name: Set up Go for CodeQL
+      uses: actions/setup-go@v2
+      with:
+        go-version: '^1.16'
+
+    - name: Build code
+      run: go build ./...
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v2
