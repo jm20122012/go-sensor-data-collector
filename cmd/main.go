@@ -316,10 +316,8 @@ func main() {
 		wg.Add(1)
 
 		log.Println("Getting postgres connection for MQTT Listener...")
-		conn, err := pool.Acquire(context.Background())
-		if err != nil {
-			log.Fatalf("Unable to acquire connection: %v\n", err)
-		}
+		conn := acquirePoolConn(pool)
+		defer conn.Release()
 
 		log.Println("Creating DB connection for MQTT Listener...")
 		dbConn := db.NewSensorDataDB(conn)
@@ -339,10 +337,7 @@ func main() {
 	}
 
 	if os.Getenv("ENABLE_AVTECH_WORKER") == "true" {
-		conn, err := pool.Acquire(context.Background())
-		if err != nil {
-			log.Fatalf("Unable to acquire connection: %v\n", err)
-		}
+		conn := acquirePoolConn(pool)
 		defer conn.Release()
 
 		dbConn := db.NewSensorDataDB(conn)
@@ -354,10 +349,7 @@ func main() {
 	}
 
 	if os.Getenv("ENABLE_AMBIENT_WORKER") == "true" {
-		conn, err := pool.Acquire(context.Background())
-		if err != nil {
-			log.Fatalf("Unable to acquire connection: %v\n", err)
-		}
+		conn := acquirePoolConn(pool)
 		defer conn.Release()
 
 		dbConn := db.NewSensorDataDB(conn)
