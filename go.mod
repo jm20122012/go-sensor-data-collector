@@ -1,6 +1,6 @@
 module sensor-data-collection-service
 
-go 1.22
+go 1.22.4
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.4.2
