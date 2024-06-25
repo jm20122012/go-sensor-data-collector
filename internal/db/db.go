@@ -16,6 +16,7 @@ type SensorData interface {
 
 type DbWriter[T SensorData] interface {
 	WriteSensorData(data T) error
+	Tablename() string
 }
 
 type SensorDataDB struct {
