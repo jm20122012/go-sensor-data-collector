@@ -10,6 +10,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type SensorData interface {
+	sqlc.AmbientStationDatum | sqlc.AvtechDatum | sqlc.PiSensorDatum
+}
+
+type DbWriter[T SensorData] interface {
+	WriteSensorData(data T) error
+}
+
 type SensorDataDB struct {
 	*sqlc.Queries
 }
