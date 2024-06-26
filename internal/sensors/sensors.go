@@ -1,9 +1,9 @@
 package sensors
 
-type RawData interface {
+type ProcessedData interface {
 	DHT11Message | AqaraMessage | AvtechResponse | AmbientStationResponse
 }
 
-type DataParser[T RawData] interface {
-	ParseData(data T)
+type DataParser[T ProcessedData] interface {
+	ParseData(data interface{})
 }
