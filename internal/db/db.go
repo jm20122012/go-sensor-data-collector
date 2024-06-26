@@ -19,22 +19,6 @@ type DbWriter[T SensorData] interface {
 	Tablename() string
 }
 
-type AvtechSensor interface {
-	sqlc.AvtechDatum
-}
-
-type AmbientSensor interface {
-	sqlc.AmbientStationDatum
-}
-
-type PiSensor interface {
-	sqlc.PiSensorDatum
-}
-
-func AvtechSensorTablename() string {
-	return "avtech_data"
-}
-
 type SensorDataDB struct {
 	*sqlc.Queries
 }
