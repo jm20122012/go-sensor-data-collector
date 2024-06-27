@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"sensor-data-collection-service/internal/datastructs"
-	"sensor-data-collection-service/internal/mqttutils"
 	"strconv"
 	"sync"
 	"time"
@@ -19,6 +18,7 @@ import (
 
 	"sensor-data-collection-service/internal/db"
 	"sensor-data-collection-service/internal/db/sqlc"
+	"sensor-data-collection-service/internal/mqttservice"
 )
 
 type SensorList struct {
@@ -312,29 +312,35 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	if os.Getenv("ENABLE_MQTT_LISTENER") == "true" {
-		log.Println("Adding 1 to WaitGroup for MQTT Listener...")
-		wg.Add(1)
+		mqttService := mqttservice.NewMqttService()
+		log.Println("New MQTT Service created", mqttService)
 
-		log.Println("Getting postgres connection for MQTT Listener...")
-		conn := acquirePoolConn(pool)
-		defer conn.Release()
-
-		log.Println("Creating DB connection for MQTT Listener...")
-		dbConn := db.NewSensorDataDB(conn)
-
-		log.Println("Creating MQTT message handler for MQTT Listener...")
-		msgHndlr := mqttMsgHandlerFactory(dbConn, sensorIdMap)
-
-		log.Println("Creating connection lost handler for MQTT Listener...")
-		connectLostHdnlr := onConnectionLostHdnlrFactory(wg, conn)
-
-		log.Println("Creating MQTT client for MQTT Listener...")
-		mqttClient := mqttutils.CreateMqttClient(connectLostHdnlr, msgHndlr)
-
-		log.Println("Subscribing to MQTT topic...")
-		mqttutils.MqttSubscribe(mqttClient)
-
+		log.Println("Checking if devices exist in database...")
 	}
+	// if os.Getenv("ENABLE_MQTT_LISTENER") == "true" {
+	// 	log.Println("Adding 1 to WaitGroup for MQTT Listener...")
+	// 	wg.Add(1)
+
+	// 	log.Println("Getting postgres connection for MQTT Listener...")
+	// 	conn := acquirePoolConn(pool)
+	// 	defer conn.Release()
+
+	// 	log.Println("Creating DB connection for MQTT Listener...")
+	// 	dbConn := db.NewSensorDataDB(conn)
+
+	// 	log.Println("Creating MQTT message handler for MQTT Listener...")
+	// 	msgHndlr := mqttMsgHandlerFactory(dbConn, sensorIdMap)
+
+	// 	log.Println("Creating connection lost handler for MQTT Listener...")
+	// 	connectLostHdnlr := onConnectionLostHdnlrFactory(wg, conn)
+
+	// 	log.Println("Creating MQTT client for MQTT Listener...")
+	// 	mqttClient := mqttutils.CreateMqttClient(connectLostHdnlr, msgHndlr)
+
+	// 	log.Println("Subscribing to MQTT topic...")
+	// 	mqttutils.MqttSubscribe(mqttClient)
+
+	// }
 
 	if os.Getenv("ENABLE_AVTECH_WORKER") == "true" {
 		conn := acquirePoolConn(pool)
