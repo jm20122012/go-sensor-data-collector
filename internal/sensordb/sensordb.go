@@ -1,11 +1,11 @@
-package db
+package sensordb
 
 import (
 	"context"
 	"fmt"
 	"log"
 	"os"
-	"sensor-data-collection-service/internal/db/sqlc"
+	"sensor-data-collection-service/internal/sensordb/sqlc"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )

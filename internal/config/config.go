@@ -8,7 +8,7 @@ import (
 )
 
 type OuterConfig struct {
-	Config Config
+	Config Config `yaml:"config"`
 }
 
 type Config struct {

@@ -1,4 +1,4 @@
-package sensors
+package devices
 
 type DHT11Message struct {
 	TempF          float64 `json:"temp_f"`

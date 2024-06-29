@@ -1,4 +1,4 @@
-package sensors
+package devices
 
 type LastDataStruct struct {
 	DateUTC                 int     `json:"dateutc"`

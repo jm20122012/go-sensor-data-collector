@@ -2,6 +2,7 @@ package mqttservice
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,7 +10,10 @@ import (
 	"time"
 
 	"sensor-data-collection-service/internal/config"
-	"sensor-data-collection-service/internal/db"
+	"sensor-data-collection-service/internal/devices"
+	"sensor-data-collection-service/internal/sensordb"
+	"sensor-data-collection-service/internal/sensordb/sqlc"
+	"sensor-data-collection-service/internal/utils"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -19,6 +23,7 @@ import (
 type TopicData struct {
 	DeviceID     int32
 	DeviceTypeID int32
+	DeviceType   string
 }
 
 type MqttService struct {
@@ -26,20 +31,18 @@ type MqttService struct {
 	Wg           *sync.WaitGroup
 	Config       config.Config
 	Client       mqtt.Client
-	DB           *db.SensorDataDB
-	Conn         *pgxpool.Conn
 	TopicMapping map[string]TopicData
 	Logger       *slog.Logger
+	PgPool       *pgxpool.Pool
 }
 
-func NewMqttService(wg *sync.WaitGroup, ctx context.Context, db *db.SensorDataDB, conn *pgxpool.Conn, cfg config.Config, logger *slog.Logger) MqttService {
+func NewMqttService(wg *sync.WaitGroup, ctx context.Context, cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) MqttService {
 	return MqttService{
 		Ctx:    ctx,
 		Wg:     wg,
 		Config: cfg,
-		DB:     db,
-		Conn:   conn,
 		Logger: logger,
+		PgPool: pool,
 	}
 }
 
@@ -64,8 +67,92 @@ func (m *MqttService) OnConnectHndlrFactory() mqtt.OnConnectHandler {
 
 func (m *MqttService) MqttMsgHndlrFactory() mqtt.MessageHandler {
 	return func(client mqtt.Client, msg mqtt.Message) {
-		m.Logger.Info("Receiving MQTT message", "msg", msg.Payload(), "topic", msg.Topic())
+		m.Logger.Info("Received MQTT message", "msg", msg.Payload(), "topic", msg.Topic())
+
+		switch m.TopicMapping[msg.Topic()].DeviceType {
+		case "aqara_temp_sensor":
+			m.ProcessAqaraTempSensorMsg(msg)
+		case "dht11_sensor":
+			m.ProcessDht11TempSensorMsg(msg)
+		case "sonoff_smart_plug":
+			m.ProcessSonoffSmartPlugMsg(msg)
+		default:
+			m.Logger.Warn("Unknown device type in MQTT message")
+		}
 	}
+}
+
+func (m *MqttService) ProcessAqaraTempSensorMsg(msg mqtt.Message) {
+	m.Logger.Debug("Processing aqara temp sensor message")
+
+	// Declare the raw message struct
+	var rawMsg devices.AqaraTempSensorRawMessage
+	err := json.Unmarshal(msg.Payload(), &rawMsg)
+	if err != nil {
+		m.Logger.Error("Error unmarshalling raw aqara temp sensor message", "error", err)
+	}
+
+	m.Logger.Debug("Raw message", "msg", rawMsg)
+
+	// Convert data types for DB write
+	ts := utils.GetUTCTimestamp()
+	tempC := float32(rawMsg.Temperature)
+	tempF := utils.CelsiusToFahrenheit(tempC)
+	humidity := float32(rawMsg.Humidity)
+	pressure := float32(rawMsg.Pressure)
+	lq := float32(rawMsg.LinkQuality)
+	bp := float32(rawMsg.Battery)
+	bv := float32(rawMsg.Voltage)
+	poc := int32(rawMsg.PowerOutageCount)
+	devId := int32(m.TopicMapping[msg.Topic()].DeviceID)
+	devTypeId := int32(m.TopicMapping[msg.Topic()].DeviceTypeID)
+
+	aqaraUniqueParams := sqlc.InsertAqaraUniqueDataParams{
+		Timestamp:        ts,
+		LinkQuality:      &lq,
+		BattPercentage:   &bp,
+		BattVoltage:      &bv,
+		PowerOutageCount: &poc,
+		DeviceID:         &devId,
+		DeviceTypeID:     &devTypeId,
+	}
+
+	sharedParams := sqlc.InsertReadingParams{
+		Timestamp:        ts,
+		TempF:            &tempF,
+		TempC:            &tempC,
+		Humidity:         &humidity,
+		AbsolutePressure: &pressure,
+		DeviceTypeID:     &devTypeId,
+		DeviceID:         &devId,
+	}
+
+	// Will refactor pool and db query object logic later
+	conn := utils.AcquirePoolConn(m.PgPool)
+	defer conn.Release()
+
+	db := sensordb.NewSensorDataDB(conn)
+	err = db.InsertAqaraUniqueData(m.Ctx, aqaraUniqueParams)
+	if err != nil {
+		m.Logger.Error("Error writing aqara temp sensor unique data", "error", err)
+	} else {
+		m.Logger.Info("Successful write to aqara unique data", "mqttTopic", msg.Topic(), "deviceType", m.TopicMapping[msg.Topic()].DeviceType, "deviceID", m.TopicMapping[msg.Topic()].DeviceID)
+	}
+
+	err = db.InsertReading(m.Ctx, sharedParams)
+	if err != nil {
+		m.Logger.Error("Error writing aqara temp sensor shared data", "error", err)
+	} else {
+		m.Logger.Info("Successful write to shared data", "mqttTopic", msg.Topic(), "deviceType", m.TopicMapping[msg.Topic()].DeviceType, "deviceID", m.TopicMapping[msg.Topic()].DeviceID)
+	}
+}
+
+func (m *MqttService) ProcessDht11TempSensorMsg(msg mqtt.Message) {
+	m.Logger.Debug("Processing dht11 sensor message")
+}
+
+func (m *MqttService) ProcessSonoffSmartPlugMsg(msg mqtt.Message) {
+	m.Logger.Debug("Processing sonoff smart plug message")
 }
 
 func (m *MqttService) OnConnectLostHndlrFactory() mqtt.ConnectionLostHandler {
@@ -104,8 +191,6 @@ func (m *MqttService) CreateMqttClient() {
 
 func (m *MqttService) Cleanup() {
 	m.Logger.Info("MQTT cleanup called")
-
-	m.Conn.Release()
 
 	for key := range m.TopicMapping {
 		m.Client.Unsubscribe(key)

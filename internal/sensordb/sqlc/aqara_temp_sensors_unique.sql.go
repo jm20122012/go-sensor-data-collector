@@ -18,6 +18,7 @@ INSERT INTO aqara_temp_sensors_unique
         timestamp,
         link_quality,
         batt_percentage,
+        batt_voltage,
         power_outage_count,
         device_id,
         device_type_id
@@ -30,7 +31,8 @@ VALUES
         $3,
         $4,
         $5,
-        $6
+        $6,
+        $7
     )
 `
 
@@ -38,6 +40,7 @@ type InsertAqaraUniqueDataParams struct {
 	Timestamp        pgtype.Timestamptz `json:"timestamp"`
 	LinkQuality      *float32           `json:"link_quality"`
 	BattPercentage   *float32           `json:"batt_percentage"`
+	BattVoltage      *float32           `json:"batt_voltage"`
 	PowerOutageCount *int32             `json:"power_outage_count"`
 	DeviceID         *int32             `json:"device_id"`
 	DeviceTypeID     *int32             `json:"device_type_id"`
@@ -48,6 +51,7 @@ func (q *Queries) InsertAqaraUniqueData(ctx context.Context, arg InsertAqaraUniq
 		arg.Timestamp,
 		arg.LinkQuality,
 		arg.BattPercentage,
+		arg.BattVoltage,
 		arg.PowerOutageCount,
 		arg.DeviceID,
 		arg.DeviceTypeID,

@@ -10,13 +10,21 @@ import (
 )
 
 const getMqttTopicData = `-- name: GetMqttTopicData :many
-SELECT mqtt_topic, device_id, device_type_id FROM mqtt_config
+SELECT
+	mc.mqtt_topic,
+	mc.device_id,
+    mc.device_type_id,
+	dti.device_type
+FROM 
+	mqtt_config mc
+INNER JOIN device_type_ids dti ON mc.device_type_id = dti.device_type_id
 `
 
 type GetMqttTopicDataRow struct {
 	MqttTopic    *string `json:"mqtt_topic"`
 	DeviceID     *int32  `json:"device_id"`
 	DeviceTypeID *int32  `json:"device_type_id"`
+	DeviceType   string  `json:"device_type"`
 }
 
 func (q *Queries) GetMqttTopicData(ctx context.Context) ([]*GetMqttTopicDataRow, error) {
@@ -28,7 +36,12 @@ func (q *Queries) GetMqttTopicData(ctx context.Context) ([]*GetMqttTopicDataRow,
 	var items []*GetMqttTopicDataRow
 	for rows.Next() {
 		var i GetMqttTopicDataRow
-		if err := rows.Scan(&i.MqttTopic, &i.DeviceID, &i.DeviceTypeID); err != nil {
+		if err := rows.Scan(
+			&i.MqttTopic,
+			&i.DeviceID,
+			&i.DeviceTypeID,
+			&i.DeviceType,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)

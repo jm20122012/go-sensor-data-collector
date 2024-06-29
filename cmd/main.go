@@ -2,35 +2,28 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"log/slog"
-	"net/http"
 	"os"
-	"sensor-data-collection-service/internal/datastructs"
-	"strconv"
 	"sync"
-	"time"
 
 	"os/signal"
 	"syscall"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
 	"sensor-data-collection-service/internal/config"
-	"sensor-data-collection-service/internal/db"
-	"sensor-data-collection-service/internal/db/sqlc"
 	"sensor-data-collection-service/internal/mqttservice"
+	"sensor-data-collection-service/internal/sensordb"
+	"sensor-data-collection-service/internal/sensordb/sqlc"
+	"sensor-data-collection-service/internal/utils"
 )
 
 type DeviceList struct {
 	Devices []*sqlc.GetDevicesRow
 }
 
-func (d *DeviceList) GetDeviceList(dbConn *db.SensorDataDB) {
+func (d *DeviceList) GetDeviceList(dbConn *sensordb.SensorDataDB) {
 	sensors, err := dbConn.GetDevices(context.Background())
 	if err != nil {
 		log.Println("Error getting sensors: ", err)
@@ -38,43 +31,43 @@ func (d *DeviceList) GetDeviceList(dbConn *db.SensorDataDB) {
 	d.Devices = sensors
 }
 
-func getAvtechData(avtechUrl string) (*datastructs.AvtechResponseData, error) {
-	resp, err := http.Get(avtechUrl)
-	if err != nil {
-		return nil, err
-	}
+// func getAvtechData(avtechUrl string) (*datastructs.AvtechResponseData, error) {
+// 	resp, err := http.Get(avtechUrl)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	defer resp.Body.Close()
+// 	defer resp.Body.Close()
 
-	var responseData datastructs.AvtechResponseData
+// 	var responseData datastructs.AvtechResponseData
 
-	err = json.NewDecoder(resp.Body).Decode(&responseData)
-	if err != nil {
-		return nil, err
-	}
+// 	err = json.NewDecoder(resp.Body).Decode(&responseData)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return &responseData, nil
-}
+// 	return &responseData, nil
+// }
 
-func getWeatherStationData(apiUrl string) (datastructs.WeatherStationResponseData, error) {
-	resp, err := http.Get(apiUrl)
-	if err != nil {
-		log.Println("Error getting Ambient Weather Station API info: ", err)
-		return nil, err
-	}
-	// log.Println("Ambient Weather Station API call successful")
+// func getWeatherStationData(apiUrl string) (datastructs.WeatherStationResponseData, error) {
+// 	resp, err := http.Get(apiUrl)
+// 	if err != nil {
+// 		log.Println("Error getting Ambient Weather Station API info: ", err)
+// 		return nil, err
+// 	}
+// 	// log.Println("Ambient Weather Station API call successful")
 
-	defer resp.Body.Close()
+// 	defer resp.Body.Close()
 
-	var responseData datastructs.WeatherStationResponseData
+// 	var responseData datastructs.WeatherStationResponseData
 
-	err = json.NewDecoder(resp.Body).Decode(&responseData)
-	if err != nil {
-		return nil, err
-	}
+// 	err = json.NewDecoder(resp.Body).Decode(&responseData)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return responseData, nil
-}
+// 	return responseData, nil
+// }
 
 // func avtechWorker(wg *sync.WaitGroup, dbConn *db.SensorDataDB, sensorIdMap map[string]int64) {
 // 	defer wg.Done()
@@ -208,64 +201,13 @@ func getWeatherStationData(apiUrl string) (datastructs.WeatherStationResponseDat
 // 	}
 // }
 
-func mqttMsgHandlerFactory(dbConn *db.SensorDataDB, deviceIdMap map[string]int64) mqtt.MessageHandler {
-	return func(client mqtt.Client, msg mqtt.Message) {
-		log.Printf("Received MQTT message \" %s \" from topic: %s\n", msg.Payload(), msg.Topic())
-
-		// Convert MQTT json string to struct
-		// err := json.Unmarshal(msg.Payload(), &sensorData)
-		// if err != nil {
-		// 	log.Println("Error unmarshalling MQTT message: ", err)
-		// }
-
-		// log.Println("Sensor data: ", sensorData)
-
-	}
-}
-
-func onConnectionLostHdnlrFactory(wg *sync.WaitGroup, conn *pgxpool.Conn) mqtt.ConnectionLostHandler {
-	return func(client mqtt.Client, err error) {
-		log.Printf("MQTT connection lost: %v", err)
-		conn.Release()
-		wg.Done()
-	}
-}
-
-func getUTCTimestamp() pgtype.Timestamptz {
-	// Get the current time in UTC
-	currentTime := time.Now().UTC()
-
-	// Create a Timestamptz and set its value
-	var timestamptz pgtype.Timestamptz
-	timestamptz.Time = currentTime
-	timestamptz.Valid = true
-
-	return timestamptz
-}
-
-func convertStrToFloat32(value string) float32 {
-	floatValue, err := strconv.ParseFloat(value, 32)
-	if err != nil {
-		log.Println("Error converting value to float32: ", err)
-	}
-	return float32(floatValue)
-}
-
-func acquirePoolConn(pool *pgxpool.Pool) *pgxpool.Conn {
-	conn, err := pool.Acquire(context.Background())
-	if err != nil {
-		log.Fatalf("Unable to acquire connection: %v\n", err)
-	}
-	return conn
-}
-
-func createLogger(level slog.Level) *slog.Logger {
-	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: level,
-	})
-	logger := slog.New(handler)
-	return logger
-}
+// func acquirePoolConn(pool *pgxpool.Pool) *pgxpool.Conn {
+// 	conn, err := pool.Acquire(context.Background())
+// 	if err != nil {
+// 		log.Fatalf("Unable to acquire connection: %v\n", err)
+// 	}
+// 	return conn
+// }
 
 func main() {
 	// Load environment variables
@@ -284,15 +226,15 @@ func main() {
 	var logger *slog.Logger
 	switch cfg.DebugLevel {
 	case "DEBUG":
-		logger = createLogger(slog.LevelDebug)
+		logger = utils.CreateLogger(slog.LevelDebug)
 	case "INFO":
-		logger = createLogger(slog.LevelInfo)
+		logger = utils.CreateLogger(slog.LevelInfo)
 	case "WARNING":
-		logger = createLogger(slog.LevelWarn)
+		logger = utils.CreateLogger(slog.LevelWarn)
 	case "ERROR":
-		logger = createLogger(slog.LevelError)
+		logger = utils.CreateLogger(slog.LevelError)
 	default:
-		logger = createLogger(slog.LevelInfo)
+		logger = utils.CreateLogger(slog.LevelInfo)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -306,24 +248,24 @@ func main() {
 		cancel()
 	}(cancel)
 
-	connString := db.BuildPgConnectionString(
+	connString := sensordb.BuildPgConnectionString(
 		os.Getenv("POSTGRES_USER"),
 		os.Getenv("POSTGRES_PASSWORD"),
 		os.Getenv("POSTGRES_HOST"),
 		os.Getenv("POSTGRES_PORT"),
 		os.Getenv("POSTGRES_DB"),
 	)
-	pool := db.CreateConnectionPool(connString)
+	pool := sensordb.CreateConnectionPool(connString)
 	defer pool.Close()
 
-	conn := acquirePoolConn(pool)
-	dbConn := db.NewSensorDataDB(conn)
+	conn := utils.AcquirePoolConn(pool)
+	db := sensordb.NewSensorDataDB(conn)
 	deviceList := DeviceList{}
-	deviceList.GetDeviceList(dbConn)
+	deviceList.GetDeviceList(db)
 	deviceIdMap := make(map[string]int64)
 	for _, device := range deviceList.Devices {
 		d := *device
-		deviceID, err := dbConn.GetDeviceIdByName(ctx, d.DeviceName)
+		deviceID, err := db.GetDeviceIdByName(ctx, d.DeviceName)
 		if err != nil {
 			logger.Error("Error getting sensor ID", "error", err)
 		}
@@ -335,16 +277,15 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	if os.Getenv("ENABLE_MQTT_LISTENER") == "true" {
-		conn := acquirePoolConn(pool)
-		dbConn := db.NewSensorDataDB(conn)
-
-		ms := mqttservice.NewMqttService(wg, ctx, dbConn, conn, *cfg, logger)
+		conn := utils.AcquirePoolConn(pool)
+		db := sensordb.NewSensorDataDB(conn)
+		ms := mqttservice.NewMqttService(wg, ctx, *cfg, logger, pool)
 		logger.Info("New MQTT Service created", "service", ms)
 
 		ms.CreateMqttClient()
 		logger.Info("MQTT client created")
 
-		topicData, err := ms.DB.GetMqttTopicData(ctx)
+		topicData, err := db.GetMqttTopicData(ctx)
 		if err != nil {
 			logger.Error("Could not retrieve topic data", "error", err)
 		}
@@ -354,19 +295,23 @@ func main() {
 			td := mqttservice.TopicData{
 				DeviceID:     *t.DeviceID,
 				DeviceTypeID: *t.DeviceTypeID,
+				DeviceType:   t.DeviceType,
 			}
 			topicDataMap[*t.MqttTopic] = td
 		}
 
 		ms.TopicMapping = topicDataMap
 
-		mqttTopics, err := dbConn.GetUniqueMqttTopics(ctx)
+		mqttTopics, err := db.GetUniqueMqttTopics(ctx)
 		if err != nil {
 			logger.Error("Error getting mqtt topics", "error", err)
 		}
 		for _, topic := range mqttTopics {
 			ms.MqttSubscribe(*topic)
 		}
+
+		conn.Release()
+
 		wg.Add(1)
 	}
 	// if os.Getenv("ENABLE_MQTT_LISTENER") == "true" {

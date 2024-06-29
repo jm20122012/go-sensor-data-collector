@@ -5,6 +5,7 @@ INSERT INTO aqara_temp_sensors_unique
         timestamp,
         link_quality,
         batt_percentage,
+        batt_voltage,
         power_outage_count,
         device_id,
         device_type_id
@@ -17,5 +18,6 @@ VALUES
         $3,
         $4,
         $5,
-        $6
+        $6,
+        $7
     );

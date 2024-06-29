@@ -1,7 +1,7 @@
-package sensors
+package devices
 
 type ProcessedData interface {
-	DHT11Message | AqaraMessage | AvtechResponse | AmbientStationResponse
+	DHT11Message | AqaraTempSensorRawMessage | AvtechResponse | AmbientStationResponse
 }
 
 type DataParser[T ProcessedData] interface {
