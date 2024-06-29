@@ -16,3 +16,7 @@ func ConvertStrToFloat32(value string) float32 {
 func CelsiusToFahrenheit(c float32) float32 {
 	return c*9/5 + 32
 }
+
+func FahrenheitToCelsius(f float32) float32 {
+	return (f - 32) * 5 / 9
+}

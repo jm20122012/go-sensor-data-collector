@@ -2,3 +2,7 @@ config:
     debug_level: "DEBUG"
     mqtt_broker: "192.168.3.31"
     mqtt_port: 1883
+    enable_ambient_station_worker: true
+    enable_avtech_worker: true
+    enable_mqtt_worker: true
+    

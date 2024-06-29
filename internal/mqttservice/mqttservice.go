@@ -74,8 +74,8 @@ func (m *MqttService) MqttMsgHndlrFactory() mqtt.MessageHandler {
 			m.ProcessAqaraTempSensorMsg(msg)
 		case "dht11_sensor":
 			m.ProcessDht11TempSensorMsg(msg)
-		case "sonoff_smart_plug":
-			m.ProcessSonoffSmartPlugMsg(msg)
+		// case "sonoff_smart_plug":
+		// 	m.ProcessSonoffSmartPlugMsg(msg)
 		default:
 			m.Logger.Warn("Unknown device type in MQTT message")
 		}
@@ -149,11 +149,47 @@ func (m *MqttService) ProcessAqaraTempSensorMsg(msg mqtt.Message) {
 
 func (m *MqttService) ProcessDht11TempSensorMsg(msg mqtt.Message) {
 	m.Logger.Debug("Processing dht11 sensor message")
+
+	var rawMsg devices.DHT11Message
+	err := json.Unmarshal(msg.Payload(), &rawMsg)
+	if err != nil {
+		m.Logger.Error("Error unmarshalling raw dht11 temp sensor message", "error", err)
+	}
+
+	m.Logger.Debug("Raw message", "msg", rawMsg)
+
+	ts := utils.GetUTCTimestamp()
+	tempF := float32(rawMsg.TempF)
+	tempC := float32(rawMsg.TempC)
+	humidity := float32(rawMsg.Humidity)
+	pressure := float32(0)
+	devId := int32(m.TopicMapping[msg.Topic()].DeviceID)
+	devTypeId := int32(m.TopicMapping[msg.Topic()].DeviceTypeID)
+
+	sharedParams := sqlc.InsertReadingParams{
+		Timestamp:        ts,
+		TempF:            &tempF,
+		TempC:            &tempC,
+		Humidity:         &humidity,
+		AbsolutePressure: &pressure,
+		DeviceTypeID:     &devTypeId,
+		DeviceID:         &devId,
+	}
+	conn := utils.AcquirePoolConn(m.PgPool)
+	defer conn.Release()
+	db := sensordb.NewSensorDataDB(conn)
+
+	err = db.InsertReading(m.Ctx, sharedParams)
+	if err != nil {
+		m.Logger.Error("Error writing dht11 temp sensor shared data", "error", err)
+	} else {
+		m.Logger.Info("Successful write to shared data", "mqttTopic", msg.Topic(), "deviceType", m.TopicMapping[msg.Topic()].DeviceType, "deviceID", m.TopicMapping[msg.Topic()].DeviceID)
+	}
 }
 
-func (m *MqttService) ProcessSonoffSmartPlugMsg(msg mqtt.Message) {
-	m.Logger.Debug("Processing sonoff smart plug message")
-}
+// func (m *MqttService) ProcessSonoffSmartPlugMsg(msg mqtt.Message) {
+// 	m.Logger.Debug("Processing sonoff smart plug message")
+// }
 
 func (m *MqttService) OnConnectLostHndlrFactory() mqtt.ConnectionLostHandler {
 	return func(client mqtt.Client, err error) {

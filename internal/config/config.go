@@ -12,9 +12,12 @@ type OuterConfig struct {
 }
 
 type Config struct {
-	DebugLevel string `yaml:"debug_level"`
-	MqttBroker string `yaml:"mqtt_broker"`
-	MqttPort   int    `yaml:"mqtt_port"`
+	DebugLevel                 string `yaml:"debug_level"`
+	MqttBroker                 string `yaml:"mqtt_broker"`
+	MqttPort                   int    `yaml:"mqtt_port"`
+	EnableAmbientStationWorker bool   `yaml:"enable_ambient_station_worker"`
+	EnableAvtechWorker         bool   `yaml:"enable_avtech_worker"`
+	EnableMqttWorker           bool   `yaml:"enable_mqtt_worker"`
 }
 
 func LoadConfig(filename string) (*Config, error) {
