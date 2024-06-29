@@ -1,4 +1,4 @@
-FROM golang:1.22.4-alpine3.20 as build
+FROM golang:1.22.4-alpine3.20 AS build
 
 WORKDIR /build
 COPY go.mod .
@@ -9,7 +9,7 @@ COPY ./db ./db
 RUN go mod download
 RUN go build -o main ./cmd
 
-FROM golang:1.22.4-alpine3.20 as final
+FROM golang:1.22.4-alpine3.20 AS final
 
 WORKDIR /app
 COPY --from=build /build/main /app/main
