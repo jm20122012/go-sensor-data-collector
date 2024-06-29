@@ -9,6 +9,7 @@ services:
       - sensor-data-network
     volumes:
       - .env:/app/.env
+      - config.yml:/app/config.yml
     restart: unless-stopped
     logging:
       driver: "json-file"
