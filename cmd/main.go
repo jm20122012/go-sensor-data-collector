@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"sensor-data-collection-service/internal/datastructs"
@@ -11,11 +12,15 @@ import (
 	"sync"
 	"time"
 
+	"os/signal"
+	"syscall"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
+	"sensor-data-collection-service/internal/config"
 	"sensor-data-collection-service/internal/db"
 	"sensor-data-collection-service/internal/db/sqlc"
 	"sensor-data-collection-service/internal/mqttservice"
@@ -254,6 +259,14 @@ func acquirePoolConn(pool *pgxpool.Pool) *pgxpool.Conn {
 	return conn
 }
 
+func createLogger(level slog.Level) *slog.Logger {
+	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: level,
+	})
+	logger := slog.New(handler)
+	return logger
+}
+
 func main() {
 	// Load environment variables
 	err := godotenv.Load()
@@ -261,7 +274,37 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	ctx := context.Background()
+	// Load app config
+	cfg, err := config.LoadConfig("config.yml")
+	if err != nil {
+		slog.Error("Erorr loading config.yml", "error", err)
+	}
+
+	// Setup logger
+	var logger *slog.Logger
+	switch cfg.DebugLevel {
+	case "DEBUG":
+		logger = createLogger(slog.LevelDebug)
+	case "INFO":
+		logger = createLogger(slog.LevelInfo)
+	case "WARNING":
+		logger = createLogger(slog.LevelWarn)
+	case "ERROR":
+		logger = createLogger(slog.LevelError)
+	default:
+		logger = createLogger(slog.LevelInfo)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	go func(cancel context.CancelFunc) {
+		<-c
+		logger.Info("Ctrl+C pressed, cancelling context...")
+		cancel()
+	}(cancel)
 
 	connString := db.BuildPgConnectionString(
 		os.Getenv("POSTGRES_USER"),
@@ -282,7 +325,7 @@ func main() {
 		d := *device
 		deviceID, err := dbConn.GetDeviceIdByName(ctx, d.DeviceName)
 		if err != nil {
-			log.Println("Error getting sensor ID: ", err)
+			logger.Error("Error getting sensor ID", "error", err)
 		}
 		deviceIdMap[d.DeviceName] = deviceID
 	}
@@ -292,34 +335,39 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	if os.Getenv("ENABLE_MQTT_LISTENER") == "true" {
-		mqttService := mqttservice.NewMqttService()
-		log.Println("New MQTT Service created", mqttService)
-
 		conn := acquirePoolConn(pool)
 		dbConn := db.NewSensorDataDB(conn)
-		mqttService.DBConn = dbConn
-		mqttService.CreateMqttClient(
-			onConnectionLostHdnlrFactory(wg, conn),
-			mqttMsgHandlerFactory(dbConn, deviceIdMap),
-		)
 
-		log.Println("Getting MQTT topics...")
+		ms := mqttservice.NewMqttService(wg, ctx, dbConn, conn, *cfg, logger)
+		logger.Info("New MQTT Service created", "service", ms)
+
+		ms.CreateMqttClient()
+		logger.Info("MQTT client created")
+
+		topicData, err := ms.DB.GetMqttTopicData(ctx)
+		if err != nil {
+			logger.Error("Could not retrieve topic data", "error", err)
+		}
+
+		topicDataMap := make(map[string]mqttservice.TopicData)
+		for _, t := range topicData {
+			td := mqttservice.TopicData{
+				DeviceID:     *t.DeviceID,
+				DeviceTypeID: *t.DeviceTypeID,
+			}
+			topicDataMap[*t.MqttTopic] = td
+		}
+
+		ms.TopicMapping = topicDataMap
+
 		mqttTopics, err := dbConn.GetUniqueMqttTopics(ctx)
 		if err != nil {
-			log.Println("Error getting mqtt topics", err)
+			logger.Error("Error getting mqtt topics", "error", err)
 		}
-		log.Println("MQTT topics: ", mqttTopics)
 		for _, topic := range mqttTopics {
-			log.Printf("Attempting to subscribe to %s\n", *topic)
-			mqttService.MqttSubscribe(*topic)
+			ms.MqttSubscribe(*topic)
 		}
 		wg.Add(1)
-		// for _, device := range deviceList.Devices {
-		// 	if *device.MqttTopic != "" {
-		// 		mqttService.MqttSubscribe(*device.MqttTopic)
-		// 	}
-		// }
-		// wg.Add(1)
 	}
 	// if os.Getenv("ENABLE_MQTT_LISTENER") == "true" {
 	// 	log.Println("Adding 1 to WaitGroup for MQTT Listener...")
@@ -371,5 +419,7 @@ func main() {
 	// }
 
 	wg.Wait()
+
+	logger.Info("Exiting...")
 
 }

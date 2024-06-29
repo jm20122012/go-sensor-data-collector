@@ -9,6 +9,36 @@ import (
 	"context"
 )
 
+const getMqttTopicData = `-- name: GetMqttTopicData :many
+SELECT mqtt_topic, device_id, device_type_id FROM mqtt_config
+`
+
+type GetMqttTopicDataRow struct {
+	MqttTopic    *string `json:"mqtt_topic"`
+	DeviceID     *int32  `json:"device_id"`
+	DeviceTypeID *int32  `json:"device_type_id"`
+}
+
+func (q *Queries) GetMqttTopicData(ctx context.Context) ([]*GetMqttTopicDataRow, error) {
+	rows, err := q.db.Query(ctx, getMqttTopicData)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*GetMqttTopicDataRow
+	for rows.Next() {
+		var i GetMqttTopicDataRow
+		if err := rows.Scan(&i.MqttTopic, &i.DeviceID, &i.DeviceTypeID); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUniqueMqttTopics = `-- name: GetUniqueMqttTopics :many
 SELECT DISTINCT mqtt_topic FROM mqtt_config
 `

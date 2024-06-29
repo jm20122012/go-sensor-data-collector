@@ -12,6 +12,7 @@ type Querier interface {
 	GetDeviceIdByName(ctx context.Context, deviceName string) (int64, error)
 	GetDeviceTypeIDByDeviceType(ctx context.Context, deviceType string) (int32, error)
 	GetDevices(ctx context.Context) ([]*GetDevicesRow, error)
+	GetMqttTopicData(ctx context.Context) ([]*GetMqttTopicDataRow, error)
 	GetUniqueMqttTopics(ctx context.Context) ([]*string, error)
 	InsertAmbientStationData(ctx context.Context, arg InsertAmbientStationDataParams) error
 	InsertAqaraUniqueData(ctx context.Context, arg InsertAqaraUniqueDataParams) error
