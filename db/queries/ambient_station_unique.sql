@@ -1,27 +1,24 @@
 -- name: InsertAmbientStationData :exec
-INSERT INTO ambient_station_data
+INSERT INTO ambient_station_unique
     (
         id, 
-        "time", 
+        timestamp, 
         "date", 
         timezone, 
         date_utc, 
-        inside_temp_f, 
-        inside_feels_like_temp_f, 
+        inside_temp_feels_like_f, 
         outside_temp_f, 
-        outside_feels_like_temp_f, 
-        inside_humidity, 
+        outside_temp_feels_like_f, 
         outside_humidity, 
         inside_dew_point, 
         outside_dew_point, 
-        baro_relative, 
-        baro_absolute, 
+        relative_pressure, 
         wind_direction, 
         wind_speed_mph, 
         wind_speed_gust_mph, 
-        max_daily_gust, 
-        hourly_rain_inches, 
+        max_daily_gust_mph, 
         event_rain_inches, 
+        hourly_rain_inches, 
         daily_rain_inches, 
         weekly_rain_inches, 
         monthly_rain_inches, 
@@ -30,8 +27,9 @@ INSERT INTO ambient_station_data
         uv_index, 
         solar_radiation, 
         outside_batt_status, 
-        batt_co2, 
-        sensor_id
+        co2_batt_status, 
+        device_id,
+        device_type_id
     )
 VALUES 
 (
@@ -63,7 +61,5 @@ VALUES
     $25, 
     $26, 
     $27, 
-    $28, 
-    $29,
-    $30
+    $28
 );

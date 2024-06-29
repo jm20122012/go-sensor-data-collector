@@ -1,0 +1,59 @@
+config:
+  device_type_ids:
+    - device_type: "aqara_temp_sensor"
+        device_type_id: 1
+        device_list:
+          - device_name: ""aqara_temp_sensor_office"
+
+    - device_type: "dht11_sensor"
+        device_type_id: 2
+    
+    - device_type: "avtech_sensor"
+        device_type_id: 3
+    
+    - device_type: "ambient_wx_station"
+        device_type_id: 4
+    
+    - device_type: "sonoff_smart_plug"
+        device_type_id: 5
+
+  device_list:
+    - device_name: "aqara_temp_sensor_office"
+        device_location: "office"
+        device_type_id: 1
+
+    - device_name: "aqara_temp_sensor_master_bedroom"
+        device_location: "master_bedroom"
+        device_type_id: 1
+
+    - device_name: "aqara_temp_sensor_loft"
+        device_location: "loft"
+        device_type_id: 1
+
+    - device_name: "aqara_temp_sensor_living_room_stairs"
+        device_location: "office"
+        device_type_id: 1
+
+    - device_name: "entry_sensor"
+        device_location: "entry"
+        device_type_id: 2
+
+    - device_name: "basement_sensor"
+        device_location: "basement"
+        device_type_id: 2
+    
+    - device_name: "avtech_basement_rack"
+        device_location: "basement_rack"
+        device_type_id: 3
+
+    - device_name: "ambient_wx_station"
+        device_location: "backyard"
+        device_type_id: 4
+
+    - device_name: "sonoff_smart_plug_loft"
+        device_location: "loft"
+        device_type_id: 5
+
+    - device_name: "sonoff_smart_plug_loft"
+        device_location: "loft"
+        device_type_id: 5

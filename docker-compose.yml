@@ -51,8 +51,34 @@ services:
       timeout: 5s
       retries: 5
 
+  sensor-data-db-dev:
+    image: postgres:16.3-alpine3.20
+    container_name: sensor-data-db-dev
+    volumes:
+      - sensor_data_db_dev:/var/lib/postgresql/data
+    networks:
+      - sensor-data-network
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   sensor_data_db:
+  sensor_data_db_dev:
 
 networks:
   sensor-data-network:

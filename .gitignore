@@ -4,3 +4,4 @@ ambient-example.json
 avtech_example.json
 json-example.json
 mqtt_config.yml
+**/*.csv

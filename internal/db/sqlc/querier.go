@@ -9,11 +9,13 @@ import (
 )
 
 type Querier interface {
-	GetSensorIdBySensorName(ctx context.Context, sensorName string) (int64, error)
-	GetSensors(ctx context.Context) ([]*Sensor, error)
+	GetDeviceIdByName(ctx context.Context, deviceName string) (int64, error)
+	GetDeviceTypeIDByDeviceType(ctx context.Context, deviceType string) (int32, error)
+	GetDevices(ctx context.Context) ([]*GetDevicesRow, error)
+	GetUniqueMqttTopics(ctx context.Context) ([]*string, error)
 	InsertAmbientStationData(ctx context.Context, arg InsertAmbientStationDataParams) error
-	InsertAvtechData(ctx context.Context, arg InsertAvtechDataParams) error
-	InsertPiSensorData(ctx context.Context, arg InsertPiSensorDataParams) error
+	InsertAqaraUniqueData(ctx context.Context, arg InsertAqaraUniqueDataParams) error
+	InsertReading(ctx context.Context, arg InsertReadingParams) error
 }
 
 var _ Querier = (*Queries)(nil)

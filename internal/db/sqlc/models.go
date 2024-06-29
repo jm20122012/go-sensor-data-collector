@@ -8,28 +8,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type AmbientStationDatum struct {
+type AmbientStationUnique struct {
 	ID                    int64              `json:"id"`
-	Time                  pgtype.Timestamptz `json:"time"`
+	Timestamp             pgtype.Timestamptz `json:"timestamp"`
 	Date                  *string            `json:"date"`
 	Timezone              *string            `json:"timezone"`
 	DateUtc               *int32             `json:"date_utc"`
-	InsideTempF           *float32           `json:"inside_temp_f"`
-	InsideFeelsLikeTempF  *float32           `json:"inside_feels_like_temp_f"`
+	InsideTempFeelsLikeF  *float32           `json:"inside_temp_feels_like_f"`
 	OutsideTempF          *float32           `json:"outside_temp_f"`
-	OutsideFeelsLikeTempF *float32           `json:"outside_feels_like_temp_f"`
-	InsideHumidity        *int32             `json:"inside_humidity"`
-	OutsideHumidity       *int32             `json:"outside_humidity"`
+	OutsideTempFeelsLikeF *float32           `json:"outside_temp_feels_like_f"`
+	OutsideHumidity       *float32           `json:"outside_humidity"`
 	InsideDewPoint        *float32           `json:"inside_dew_point"`
 	OutsideDewPoint       *float32           `json:"outside_dew_point"`
-	BaroRelative          *float32           `json:"baro_relative"`
-	BaroAbsolute          *float32           `json:"baro_absolute"`
-	WindDirection         *int32             `json:"wind_direction"`
+	RelativePressure      *float32           `json:"relative_pressure"`
+	WindDirection         *float32           `json:"wind_direction"`
 	WindSpeedMph          *float32           `json:"wind_speed_mph"`
 	WindSpeedGustMph      *float32           `json:"wind_speed_gust_mph"`
-	MaxDailyGust          *float32           `json:"max_daily_gust"`
-	HourlyRainInches      *float32           `json:"hourly_rain_inches"`
+	MaxDailyGustMph       *float32           `json:"max_daily_gust_mph"`
 	EventRainInches       *float32           `json:"event_rain_inches"`
+	HourlyRainInches      *float32           `json:"hourly_rain_inches"`
 	DailyRainInches       *float32           `json:"daily_rain_inches"`
 	WeeklyRainInches      *float32           `json:"weekly_rain_inches"`
 	MonthlyRainInches     *float32           `json:"monthly_rain_inches"`
@@ -38,20 +35,28 @@ type AmbientStationDatum struct {
 	UvIndex               *float32           `json:"uv_index"`
 	SolarRadiation        *float32           `json:"solar_radiation"`
 	OutsideBattStatus     *int32             `json:"outside_batt_status"`
-	BattCo2               *int32             `json:"batt_co2"`
-	SensorID              *int64             `json:"sensor_id"`
+	Co2BattStatus         *int32             `json:"co2_batt_status"`
+	DeviceID              *int32             `json:"device_id"`
+	DeviceTypeID          *int32             `json:"device_type_id"`
 }
 
-type AvtechDatum struct {
-	ID        int64              `json:"id"`
-	Time      pgtype.Timestamptz `json:"time"`
-	TempF     *float32           `json:"temp_f"`
-	TempFLow  *float32           `json:"temp_f_low"`
-	TempFHigh *float32           `json:"temp_f_high"`
-	TempC     *float32           `json:"temp_c"`
-	TempCLow  *float32           `json:"temp_c_low"`
-	TempCHigh *float32           `json:"temp_c_high"`
-	SensorID  *int64             `json:"sensor_id"`
+type AqaraTempSensorsUnique struct {
+	ID               int64              `json:"id"`
+	Timestamp        pgtype.Timestamptz `json:"timestamp"`
+	LinkQuality      *float32           `json:"link_quality"`
+	BattPercentage   *float32           `json:"batt_percentage"`
+	BattVoltage      *float32           `json:"batt_voltage"`
+	PowerOutageCount *int32             `json:"power_outage_count"`
+	DeviceID         *int32             `json:"device_id"`
+	DeviceTypeID     *int32             `json:"device_type_id"`
+}
+
+type DeviceList struct {
+	ID             int64   `json:"id"`
+	DeviceName     string  `json:"device_name"`
+	DeviceLocation *string `json:"device_location"`
+	DeviceTypeID   *int32  `json:"device_type_id"`
+	DeviceID       int32   `json:"device_id"`
 }
 
 type DeviceTypeID struct {
@@ -60,19 +65,20 @@ type DeviceTypeID struct {
 	DeviceTypeID int32  `json:"device_type_id"`
 }
 
-type PiSensorDatum struct {
-	ID             int64              `json:"id"`
-	Time           pgtype.Timestamptz `json:"time"`
-	TempF          *float32           `json:"temp_f"`
-	TempC          *float32           `json:"temp_c"`
-	Humidity       *float32           `json:"humidity"`
-	SensorLocation *string            `json:"sensor_location"`
-	SensorID       *int64             `json:"sensor_id"`
+type MqttConfig struct {
+	ID           int64   `json:"id"`
+	MqttTopic    *string `json:"mqtt_topic"`
+	DeviceID     *int32  `json:"device_id"`
+	DeviceTypeID *int32  `json:"device_type_id"`
 }
 
-type Sensor struct {
-	ID             int64  `json:"id"`
-	SensorName     string `json:"sensor_name"`
-	SensorLocation string `json:"sensor_location"`
-	DeviceTypeID   *int32 `json:"device_type_id"`
+type SharedAtmosphericReading struct {
+	ID               int64              `json:"id"`
+	Timestamp        pgtype.Timestamptz `json:"timestamp"`
+	TempF            *float32           `json:"temp_f"`
+	TempC            *float32           `json:"temp_c"`
+	Humidity         *float32           `json:"humidity"`
+	AbsolutePressure *float32           `json:"absolute_pressure"`
+	DeviceTypeID     *int32             `json:"device_type_id"`
+	DeviceID         *int32             `json:"device_id"`
 }

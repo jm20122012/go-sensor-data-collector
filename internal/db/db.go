@@ -11,7 +11,7 @@ import (
 )
 
 type SensorData interface {
-	sqlc.AmbientStationDatum | sqlc.AvtechDatum | sqlc.PiSensorDatum
+	sqlc.AmbientStationUnique | sqlc.AqaraTempSensorsUnique | sqlc.SharedAtmosphericReading
 }
 
 type DbWriter[T SensorData] interface {

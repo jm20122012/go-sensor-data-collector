@@ -2,19 +2,19 @@ FROM postgres:16.3-alpine3.20
 
 EXPOSE 5432
 
-ARG DB_USER
-ARG DB_PASSWORD
-ARG DB_NAME
+ARG POSTGRES_USER
+ARG POSTGRES_PASSWORD
+ARG POSTGRES_DB
 
-ENV POSTGRES_USER=$POSTGRES_USER
-ENV POSTGRES_PASSWORD=$POSTGRES_PASSWORD
-ENV POSTGRES_DB=$POSTGRES_DB
+ENV POSTGRES_USER=${POSTGRES_USER}
+ENV POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+ENV POSTGRES_DB=${POSTGRES_DB}
 
 WORKDIR /db
 
 # Copy the database schema and seed data
 COPY ./migrations/ ./migrations
-COPY ./seed.sql ./seed.sql
+# COPY ./seed.sql ./seed.sql
 COPY ./custom-entrypoint.sh /usr/local/bin/custom-entrypoint.sh
 
 # Grant execute permissions to the custom entrypoint script
