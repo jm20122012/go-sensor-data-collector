@@ -92,3 +92,15 @@ CREATE TABLE "shared_atmospheric_readings" (
   CONSTRAINT "shared_atmospheric_readings_device_list_fk" FOREIGN KEY ("device_id") REFERENCES "device_list" ("device_id") ON UPDATE NO ACTION ON DELETE NO ACTION,
   CONSTRAINT "shared_atmospheric_readings_device_type_ids_fk" FOREIGN KEY ("device_type_id") REFERENCES "device_type_ids" ("device_type_id") ON UPDATE NO ACTION ON DELETE NO ACTION
 );
+-- Create "sonoff_smart_plugs" table
+CREATE TABLE "sonoff_smart_plugs" (
+  "id" bigint NOT NULL GENERATED ALWAYS AS IDENTITY,
+  "timestamp" timestamptz NULL,
+  "link_quality" integer NULL,
+  "outlet_state" integer NULL,
+  "device_id" integer NULL,
+  "device_type_id" integer NULL,
+  PRIMARY KEY ("id"),
+  CONSTRAINT "sonoff_smart_plugs_device_list_fk" FOREIGN KEY ("device_id") REFERENCES "device_list" ("device_id") ON UPDATE NO ACTION ON DELETE NO ACTION,
+  CONSTRAINT "sonoff_smart_plugs_device_type_ids_fk" FOREIGN KEY ("device_type_id") REFERENCES "device_type_ids" ("device_type_id") ON UPDATE NO ACTION ON DELETE NO ACTION
+);

@@ -13,8 +13,16 @@ left join mqtt_config mc on dl.device_id = mc.device_id;
 
 -- name: GetDeviceIdByName :one
 SELECT 
-    id
+    device_id
 FROM 
     device_list
 WHERE 
     device_name = $1;
+
+-- name: GetDeviceTypeIdByName :one
+SELECT
+	device_type_id
+FROM
+	device_list
+WHERE
+	device_name = $1;

@@ -27,22 +27,24 @@ type TopicData struct {
 }
 
 type MqttService struct {
-	Ctx          context.Context
-	Wg           *sync.WaitGroup
-	Config       config.Config
-	Client       mqtt.Client
-	TopicMapping map[string]TopicData
-	Logger       *slog.Logger
-	PgPool       *pgxpool.Pool
+	Ctx           context.Context
+	Wg            *sync.WaitGroup
+	Config        config.Config
+	Client        mqtt.Client
+	TopicMapping  map[string]TopicData
+	DeviceListMap map[string]devices.Devices
+	Logger        *slog.Logger
+	PgPool        *pgxpool.Pool
 }
 
-func NewMqttService(wg *sync.WaitGroup, ctx context.Context, cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) MqttService {
+func NewMqttService(wg *sync.WaitGroup, ctx context.Context, cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, deviceListMap map[string]devices.Devices) MqttService {
 	return MqttService{
-		Ctx:    ctx,
-		Wg:     wg,
-		Config: cfg,
-		Logger: logger,
-		PgPool: pool,
+		Ctx:           ctx,
+		Wg:            wg,
+		Config:        cfg,
+		Logger:        logger,
+		PgPool:        pool,
+		DeviceListMap: deviceListMap,
 	}
 }
 
@@ -74,8 +76,8 @@ func (m *MqttService) MqttMsgHndlrFactory() mqtt.MessageHandler {
 			m.ProcessAqaraTempSensorMsg(msg)
 		case "dht11_sensor":
 			m.ProcessDht11TempSensorMsg(msg)
-		// case "sonoff_smart_plug":
-		// 	m.ProcessSonoffSmartPlugMsg(msg)
+		case "sonoff_smart_plug":
+			m.ProcessSonoffSmartPlugMsg(msg)
 		default:
 			m.Logger.Warn("Unknown device type in MQTT message")
 		}
@@ -92,7 +94,7 @@ func (m *MqttService) ProcessAqaraTempSensorMsg(msg mqtt.Message) {
 		m.Logger.Error("Error unmarshalling raw aqara temp sensor message", "error", err)
 	}
 
-	m.Logger.Debug("Raw message", "msg", rawMsg)
+	m.Logger.Debug("Aqara temp sensor raw message", "msg", rawMsg)
 
 	// Convert data types for DB write
 	ts := utils.GetUTCTimestamp()
@@ -156,15 +158,23 @@ func (m *MqttService) ProcessDht11TempSensorMsg(msg mqtt.Message) {
 		m.Logger.Error("Error unmarshalling raw dht11 temp sensor message", "error", err)
 	}
 
-	m.Logger.Debug("Raw message", "msg", rawMsg)
+	m.Logger.Debug("DHT11 raw message", "msg", rawMsg)
 
 	ts := utils.GetUTCTimestamp()
 	tempF := float32(rawMsg.TempF)
 	tempC := float32(rawMsg.TempC)
 	humidity := float32(rawMsg.Humidity)
 	pressure := float32(0)
-	devId := int32(m.TopicMapping[msg.Topic()].DeviceID)
-	devTypeId := int32(m.TopicMapping[msg.Topic()].DeviceTypeID)
+
+	// The dht11 sensors don't use the "topic/device_name" mqtt topic
+	// convention.  The sensor name is embedded in the message, so for
+	// now we're manually building the device name to match the device
+	// in the database which is using the convention topic/device_name
+	// In the future we need to make sure all sensors use the topic/device_name
+	// convention when transmitting mqtt messages
+	deviceName := fmt.Sprintf("%s/%s", msg.Topic(), rawMsg.SensorLocation)
+	devId := int32(m.DeviceListMap[deviceName].DeviceID)
+	devTypeId := int32(m.DeviceListMap[deviceName].DeviceTypeID)
 
 	sharedParams := sqlc.InsertReadingParams{
 		Timestamp:        ts,
@@ -175,6 +185,17 @@ func (m *MqttService) ProcessDht11TempSensorMsg(msg mqtt.Message) {
 		DeviceTypeID:     &devTypeId,
 		DeviceID:         &devId,
 	}
+
+	m.Logger.Debug("Shared params",
+		"timestamp", sharedParams.Timestamp,
+		"tempF", *sharedParams.TempF,
+		"tempC", *sharedParams.TempC,
+		"humidity", *sharedParams.Humidity,
+		"absolutePressure", *sharedParams.AbsolutePressure,
+		"deviceTypeID", *sharedParams.DeviceTypeID,
+		"deviceID", *sharedParams.DeviceID,
+	)
+
 	conn := utils.AcquirePoolConn(m.PgPool)
 	defer conn.Release()
 	db := sensordb.NewSensorDataDB(conn)
@@ -187,9 +208,49 @@ func (m *MqttService) ProcessDht11TempSensorMsg(msg mqtt.Message) {
 	}
 }
 
-// func (m *MqttService) ProcessSonoffSmartPlugMsg(msg mqtt.Message) {
-// 	m.Logger.Debug("Processing sonoff smart plug message")
-// }
+func (m *MqttService) ProcessSonoffSmartPlugMsg(msg mqtt.Message) {
+	m.Logger.Debug("Processing sonoff smart plug message")
+
+	var rawMsg devices.SonoffSmartPlugRawMsg
+	err := json.Unmarshal(msg.Payload(), &rawMsg)
+	if err != nil {
+		m.Logger.Error("Error unmarshalling raw sonoff smart plug message", "error", err)
+	}
+
+	m.Logger.Debug("Sonoff smart plug raw message", "msg", rawMsg)
+
+	timestamp := utils.GetUTCTimestamp()
+	lq := int32(rawMsg.LinkQuality)
+	devId := int32(m.TopicMapping[msg.Topic()].DeviceID)
+	devTypeId := int32(m.TopicMapping[msg.Topic()].DeviceTypeID)
+
+	var state int32
+	if rawMsg.State == "ON" {
+		state = 1
+	} else {
+		state = 0
+	}
+
+	params := sqlc.InsertSonoffSmartPlugReadingParams{
+		Timestamp:    timestamp,
+		LinkQuality:  &lq,
+		OutletState:  &state,
+		DeviceID:     &devId,
+		DeviceTypeID: &devTypeId,
+	}
+
+	conn := utils.AcquirePoolConn(m.PgPool)
+	defer conn.Release()
+	db := sensordb.NewSensorDataDB(conn)
+
+	err = db.InsertSonoffSmartPlugReading(m.Ctx, params)
+	if err != nil {
+		m.Logger.Error("Error writing sonoff smart plug update", "error", err)
+	} else {
+		m.Logger.Info("Successful write to sonoff smart plug update", "mqttTopic", msg.Topic(), "deviceType", m.TopicMapping[msg.Topic()].DeviceType, "deviceID", m.TopicMapping[msg.Topic()].DeviceID)
+	}
+
+}
 
 func (m *MqttService) OnConnectLostHndlrFactory() mqtt.ConnectionLostHandler {
 	return func(client mqtt.Client, err error) {

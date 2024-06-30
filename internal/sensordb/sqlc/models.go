@@ -82,3 +82,12 @@ type SharedAtmosphericReading struct {
 	DeviceTypeID     *int32             `json:"device_type_id"`
 	DeviceID         *int32             `json:"device_id"`
 }
+
+type SonoffSmartPlug struct {
+	ID           int64              `json:"id"`
+	Timestamp    pgtype.Timestamptz `json:"timestamp"`
+	LinkQuality  *int32             `json:"link_quality"`
+	OutletState  *int32             `json:"outlet_state"`
+	DeviceID     *int32             `json:"device_id"`
+	DeviceTypeID *int32             `json:"device_type_id"`
+}

@@ -16,6 +16,7 @@ import (
 	"sensor-data-collection-service/internal/ambientstationservice"
 	"sensor-data-collection-service/internal/avtechservice"
 	"sensor-data-collection-service/internal/config"
+	"sensor-data-collection-service/internal/devices"
 	"sensor-data-collection-service/internal/mqttservice"
 	"sensor-data-collection-service/internal/sensordb"
 	"sensor-data-collection-service/internal/sensordb/sqlc"
@@ -39,12 +40,14 @@ func main() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
+		panic(err)
 	}
 
 	// Load app config
 	cfg, err := config.LoadConfig("config.yml")
 	if err != nil {
 		slog.Error("Erorr loading config.yml", "error", err)
+		panic(err)
 	}
 
 	// Setup logger
@@ -61,6 +64,8 @@ func main() {
 	default:
 		logger = utils.CreateLogger(slog.LevelInfo)
 	}
+
+	logger.Debug("Config", "config", cfg)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -80,33 +85,52 @@ func main() {
 		os.Getenv("POSTGRES_PORT"),
 		os.Getenv("POSTGRES_DB"),
 	)
+
+	logger.Debug("Creating connection pool")
 	pool := sensordb.CreateConnectionPool(connString)
 	defer pool.Close()
 
 	conn := utils.AcquirePoolConn(pool)
 	db := sensordb.NewSensorDataDB(conn)
+
+	logger.Debug("Getting devices from DB and creating device list map")
 	deviceList := DeviceList{}
 	deviceList.GetDeviceList(db)
-	deviceListMap := make(map[string]sqlc.GetDevicesRow)
+	logger.Debug("Device list", "list", deviceList)
+
+	deviceListMap := make(map[string]devices.Devices)
 	for _, device := range deviceList.Devices {
 		d := *device
-		deviceListMap[d.DeviceName] = sqlc.GetDevicesRow{
+		logger.Debug("Adding device to device map list", "device", d)
+
+		device := devices.Devices{
 			DeviceName:     d.DeviceName,
-			DeviceLocation: d.DeviceLocation,
-			DeviceTypeID:   d.DeviceTypeID,
+			DeviceLocation: *d.DeviceLocation,
+			DeviceTypeID:   *d.DeviceTypeID,
 			DeviceID:       d.DeviceID,
 			DeviceType:     d.DeviceType,
-			MqttTopic:      d.MqttTopic,
 		}
+
+		if d.MqttTopic == nil {
+			device.MqttTopic = ""
+		} else {
+			device.MqttTopic = *d.MqttTopic
+		}
+
+		deviceListMap[d.DeviceName] = device
 	}
+	logger.Debug("Releasing initial pool connection")
 	conn.Release()
+
+	logger.Debug("Device list map created", "deviceListMap", deviceListMap)
 
 	wg := &sync.WaitGroup{}
 
 	if cfg.EnableMqttWorker {
+		logger.Debug("Starting MQTT worker setup")
 		conn := utils.AcquirePoolConn(pool)
 		db := sensordb.NewSensorDataDB(conn)
-		ms := mqttservice.NewMqttService(wg, ctx, *cfg, logger, pool)
+		ms := mqttservice.NewMqttService(wg, ctx, *cfg, logger, pool, deviceListMap)
 		logger.Info("New MQTT Service created", "service", ms)
 
 		ms.CreateMqttClient()
@@ -143,6 +167,7 @@ func main() {
 	}
 
 	if cfg.EnableAmbientStationWorker {
+		logger.Debug("Starting ambient station worker setup")
 		wg.Add(1)
 		apiUrl := fmt.Sprintf("%s?applicationKey=%s&apiKey=%s",
 			os.Getenv("AMBIENT_API_URL_BASE"),
@@ -159,11 +184,12 @@ func main() {
 			deviceListMap,
 		)
 
-		ambientService.Run()
+		go ambientService.Run()
 
 	}
 
 	if cfg.EnableAvtechWorker {
+		logger.Debug("Starting avtech worker setup")
 		wg.Add(1)
 		apiUrl := os.Getenv("AVTECH_API_URL")
 
@@ -176,7 +202,7 @@ func main() {
 			deviceListMap,
 		)
 
-		avtechService.Run()
+		go avtechService.Run()
 
 	}
 

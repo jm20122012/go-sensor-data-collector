@@ -11,18 +11,34 @@ import (
 
 const getDeviceIdByName = `-- name: GetDeviceIdByName :one
 SELECT 
-    id
+    device_id
 FROM 
     device_list
 WHERE 
     device_name = $1
 `
 
-func (q *Queries) GetDeviceIdByName(ctx context.Context, deviceName string) (int64, error) {
+func (q *Queries) GetDeviceIdByName(ctx context.Context, deviceName string) (int32, error) {
 	row := q.db.QueryRow(ctx, getDeviceIdByName, deviceName)
-	var id int64
-	err := row.Scan(&id)
-	return id, err
+	var device_id int32
+	err := row.Scan(&device_id)
+	return device_id, err
+}
+
+const getDeviceTypeIdByName = `-- name: GetDeviceTypeIdByName :one
+SELECT
+	device_type_id
+FROM
+	device_list
+WHERE
+	device_name = $1
+`
+
+func (q *Queries) GetDeviceTypeIdByName(ctx context.Context, deviceName string) (*int32, error) {
+	row := q.db.QueryRow(ctx, getDeviceTypeIdByName, deviceName)
+	var device_type_id *int32
+	err := row.Scan(&device_type_id)
+	return device_type_id, err
 }
 
 const getDevices = `-- name: GetDevices :many

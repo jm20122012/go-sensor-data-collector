@@ -21,7 +21,7 @@ type AmbientStationService struct {
 	Logger        *slog.Logger
 	PgPool        *pgxpool.Pool
 	ApiUrl        string
-	DeviceListMap map[string]sqlc.GetDevicesRow
+	DeviceListMap map[string]devices.Devices
 }
 
 func NewAmbientStationService(
@@ -30,7 +30,7 @@ func NewAmbientStationService(
 	logger *slog.Logger,
 	pgpool *pgxpool.Pool,
 	apiUrl string,
-	deviceListMap map[string]sqlc.GetDevicesRow,
+	deviceListMap map[string]devices.Devices,
 ) *AmbientStationService {
 	return &AmbientStationService{
 		Ctx:           ctx,
@@ -126,6 +126,7 @@ func (a *AmbientStationService) ProcessAmbientStationResponse(resp devices.Ambie
 	outsideBattStatus := int32(resp[0].LastData.OutsideBattStatus)
 	co2BattStatus := int32(resp[0].LastData.BattCO2)
 	deviceID := a.DeviceListMap["ambient_wx_station"].DeviceID
+	deviceTypeID := a.DeviceListMap["ambient_wx_station"].DeviceTypeID
 
 	ambientStationUniqueParams := sqlc.InsertAmbientStationDataParams{
 		Timestamp:             timestamp,
@@ -163,7 +164,7 @@ func (a *AmbientStationService) ProcessAmbientStationResponse(resp devices.Ambie
 		TempC:            &insideTempC,
 		Humidity:         &insideHumidity,
 		AbsolutePressure: &baroAbsolute,
-		DeviceTypeID:     a.DeviceListMap["ambient_wx_station"].DeviceTypeID,
+		DeviceTypeID:     &deviceTypeID,
 		DeviceID:         &deviceID,
 	}
 

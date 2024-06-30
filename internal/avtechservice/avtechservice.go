@@ -21,7 +21,7 @@ type AvtechService struct {
 	Logger        *slog.Logger
 	PgPool        *pgxpool.Pool
 	ApiUrl        string
-	DeviceListMap map[string]sqlc.GetDevicesRow
+	DeviceListMap map[string]devices.Devices
 }
 
 func NewAvtechService(
@@ -30,7 +30,7 @@ func NewAvtechService(
 	logger *slog.Logger,
 	pgpool *pgxpool.Pool,
 	apiUrl string,
-	deviceListMap map[string]sqlc.GetDevicesRow,
+	deviceListMap map[string]devices.Devices,
 ) *AvtechService {
 	return &AvtechService{
 		Ctx:           ctx,
@@ -111,7 +111,7 @@ func (a *AvtechService) ProcessAvtechResponse(resp devices.AvtechResponse) {
 		TempC:            &tempC,
 		Humidity:         &humidity,
 		AbsolutePressure: &pressure,
-		DeviceTypeID:     deviceTypeID,
+		DeviceTypeID:     &deviceTypeID,
 		DeviceID:         &deviceID,
 	}
 
