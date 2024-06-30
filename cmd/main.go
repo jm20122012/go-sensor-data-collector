@@ -90,12 +90,14 @@ func main() {
 	pool := sensordb.CreateConnectionPool(connString)
 	defer pool.Close()
 
-	conn := utils.AcquirePoolConn(pool)
-	db := sensordb.NewSensorDataDB(conn)
+	// conn := utils.AcquirePoolConn(pool)
+	// db := sensordb.NewSensorDataDB(conn)
 
 	logger.Debug("Getting devices from DB and creating device list map")
+	db := sensordb.NewDbWrapper(pool)
 	deviceList := DeviceList{}
-	deviceList.GetDeviceList(db)
+	deviceList.GetDeviceList(&db.DB)
+	db.Conn.Release()
 	logger.Debug("Device list", "list", deviceList)
 
 	deviceListMap := make(map[string]devices.Devices)
@@ -120,7 +122,6 @@ func main() {
 		deviceListMap[d.DeviceName] = device
 	}
 	logger.Debug("Releasing initial pool connection")
-	conn.Release()
 
 	logger.Debug("Device list map created", "deviceListMap", deviceListMap)
 
@@ -128,18 +129,24 @@ func main() {
 
 	if cfg.EnableMqttWorker {
 		logger.Debug("Starting MQTT worker setup")
-		conn := utils.AcquirePoolConn(pool)
-		db := sensordb.NewSensorDataDB(conn)
+
 		ms := mqttservice.NewMqttService(wg, ctx, *cfg, logger, pool, deviceListMap)
 		logger.Info("New MQTT Service created", "service", ms)
 
 		ms.CreateMqttClient()
 		logger.Info("MQTT client created")
 
-		topicData, err := db.GetMqttTopicData(ctx)
+		db := sensordb.NewDbWrapper(pool)
+		topicData, err := db.DB.GetMqttTopicData(ctx)
 		if err != nil {
 			logger.Error("Could not retrieve topic data", "error", err)
 		}
+
+		mqttTopics, err := db.DB.GetUniqueMqttTopics(ctx)
+		if err != nil {
+			logger.Error("Error getting mqtt topics", "error", err)
+		}
+		db.Conn.Release()
 
 		topicDataMap := make(map[string]mqttservice.TopicData)
 		for _, t := range topicData {
@@ -153,15 +160,9 @@ func main() {
 
 		ms.TopicMapping = topicDataMap
 
-		mqttTopics, err := db.GetUniqueMqttTopics(ctx)
-		if err != nil {
-			logger.Error("Error getting mqtt topics", "error", err)
-		}
 		for _, topic := range mqttTopics {
 			ms.MqttSubscribe(*topic)
 		}
-
-		conn.Release()
 
 		wg.Add(1)
 	}

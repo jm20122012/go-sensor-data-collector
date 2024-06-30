@@ -115,11 +115,10 @@ func (a *AvtechService) ProcessAvtechResponse(resp devices.AvtechResponse) {
 		DeviceID:         &deviceID,
 	}
 
-	conn := utils.AcquirePoolConn(a.PgPool)
-	defer conn.Release()
+	db := sensordb.NewDbWrapper(a.PgPool)
+	defer db.Conn.Release()
 
-	db := sensordb.NewSensorDataDB(conn)
-	err := db.InsertReading(a.Ctx, avtechDataParams)
+	err := db.DB.InsertReading(a.Ctx, avtechDataParams)
 	if err != nil {
 		a.Logger.Error("Error writing avtech shared data", "error", err)
 	} else {

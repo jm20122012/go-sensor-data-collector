@@ -129,19 +129,17 @@ func (m *MqttService) ProcessAqaraTempSensorMsg(msg mqtt.Message) {
 		DeviceID:         &devId,
 	}
 
-	// Will refactor pool and db query object logic later
-	conn := utils.AcquirePoolConn(m.PgPool)
-	defer conn.Release()
+	db := sensordb.NewDbWrapper(m.PgPool)
+	defer db.Conn.Release()
 
-	db := sensordb.NewSensorDataDB(conn)
-	err = db.InsertAqaraUniqueData(m.Ctx, aqaraUniqueParams)
+	err = db.DB.InsertAqaraUniqueData(m.Ctx, aqaraUniqueParams)
 	if err != nil {
 		m.Logger.Error("Error writing aqara temp sensor unique data", "error", err)
 	} else {
 		m.Logger.Info("Successful write to aqara unique data", "mqttTopic", msg.Topic(), "deviceType", m.TopicMapping[msg.Topic()].DeviceType, "deviceID", m.TopicMapping[msg.Topic()].DeviceID)
 	}
 
-	err = db.InsertReading(m.Ctx, sharedParams)
+	err = db.DB.InsertReading(m.Ctx, sharedParams)
 	if err != nil {
 		m.Logger.Error("Error writing aqara temp sensor shared data", "error", err)
 	} else {
@@ -196,11 +194,10 @@ func (m *MqttService) ProcessDht11TempSensorMsg(msg mqtt.Message) {
 		"deviceID", *sharedParams.DeviceID,
 	)
 
-	conn := utils.AcquirePoolConn(m.PgPool)
-	defer conn.Release()
-	db := sensordb.NewSensorDataDB(conn)
+	db := sensordb.NewDbWrapper(m.PgPool)
+	defer db.Conn.Release()
 
-	err = db.InsertReading(m.Ctx, sharedParams)
+	err = db.DB.InsertReading(m.Ctx, sharedParams)
 	if err != nil {
 		m.Logger.Error("Error writing dht11 temp sensor shared data", "error", err)
 	} else {
@@ -239,11 +236,10 @@ func (m *MqttService) ProcessSonoffSmartPlugMsg(msg mqtt.Message) {
 		DeviceTypeID: &devTypeId,
 	}
 
-	conn := utils.AcquirePoolConn(m.PgPool)
-	defer conn.Release()
-	db := sensordb.NewSensorDataDB(conn)
+	db := sensordb.NewDbWrapper(m.PgPool)
+	defer db.Conn.Release()
 
-	err = db.InsertSonoffSmartPlugReading(m.Ctx, params)
+	err = db.DB.InsertSonoffSmartPlugReading(m.Ctx, params)
 	if err != nil {
 		m.Logger.Error("Error writing sonoff smart plug update", "error", err)
 	} else {

@@ -168,18 +168,17 @@ func (a *AmbientStationService) ProcessAmbientStationResponse(resp devices.Ambie
 		DeviceID:         &deviceID,
 	}
 
-	conn := utils.AcquirePoolConn(a.PgPool)
-	defer conn.Release()
+	db := sensordb.NewDbWrapper(a.PgPool)
+	defer db.Conn.Release()
 
-	db := sensordb.NewSensorDataDB(conn)
-	err := db.InsertAmbientStationData(a.Ctx, ambientStationUniqueParams)
+	err := db.DB.InsertAmbientStationData(a.Ctx, ambientStationUniqueParams)
 	if err != nil {
 		a.Logger.Error("Error writing ambient unique data", "error", err)
 	} else {
 		a.Logger.Info("Successful ambient unique data write")
 	}
 
-	err = db.InsertReading(a.Ctx, sharedParams)
+	err = db.DB.InsertReading(a.Ctx, sharedParams)
 	if err != nil {
 		a.Logger.Error("Error writing ambient shared data", "error", err)
 	} else {

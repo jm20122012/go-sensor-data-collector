@@ -6,17 +6,27 @@ import (
 	"log"
 	"os"
 	"sensor-data-collection-service/internal/sensordb/sqlc"
+	"sensor-data-collection-service/internal/utils"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type SensorData interface {
-	sqlc.AmbientStationUnique | sqlc.AqaraTempSensorsUnique | sqlc.SharedAtmosphericReading
+type DbWrapper struct {
+	Conn *pgxpool.Conn
+	DB   SensorDataDB
 }
 
-type DbWriter[T SensorData] interface {
-	WriteSensorData(data T) error
-	Tablename() string
+func (d *DbWrapper) Release() {
+	d.Conn.Release()
+}
+
+func NewDbWrapper(pool *pgxpool.Pool) *DbWrapper {
+	conn := utils.AcquirePoolConn(pool)
+	db := NewSensorDataDB(conn)
+	return &DbWrapper{
+		Conn: conn,
+		DB:   *db,
+	}
 }
 
 type SensorDataDB struct {

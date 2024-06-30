@@ -1,5 +1,5 @@
 config:
-    debug_level: "DEBUG"
+    debug_level: "INFO"
     mqtt_broker: "192.168.3.31"
     mqtt_port: 1883
     enable_ambient_station_worker: true
