@@ -76,6 +76,10 @@ func (m *MqttService) MqttMsgHndlrFactory() mqtt.MessageHandler {
 			m.ProcessAqaraTempSensorMsg(msg)
 		case "dht11_sensor":
 			m.ProcessDht11TempSensorMsg(msg)
+		case "bme280_sensor":
+			m.ProcessBme280SensorMsg(msg)
+		case "bmp280_sensor":
+			m.ProcessBmp280SensorMsg(msg)
 		case "sonoff_smart_plug":
 			m.ProcessSonoffSmartPlugMsg(msg)
 		default:
@@ -142,6 +146,107 @@ func (m *MqttService) ProcessAqaraTempSensorMsg(msg mqtt.Message) {
 	err = db.DB.InsertReading(m.Ctx, sharedParams)
 	if err != nil {
 		m.Logger.Error("Error writing aqara temp sensor shared data", "error", err)
+	} else {
+		m.Logger.Info("Successful write to shared data", "mqttTopic", msg.Topic(), "deviceType", m.TopicMapping[msg.Topic()].DeviceType, "deviceID", m.TopicMapping[msg.Topic()].DeviceID)
+	}
+}
+
+func (m *MqttService) ProcessBme280SensorMsg(msg mqtt.Message) {
+	m.Logger.Debug("Processing bme280 sensor message")
+
+	var rawMsg devices.BME280
+	err := json.Unmarshal(msg.Payload(), &rawMsg)
+	if err != nil {
+		m.Logger.Error("Error unmarshalling raw bme280 sensor message", "error", err)
+	}
+
+	m.Logger.Debug("BME280 raw message", "msg", rawMsg)
+
+	ts := utils.GetUTCTimestamp()
+	tempF := float32(rawMsg.TempF)
+	tempC := float32(rawMsg.TempC)
+	humidity := float32(rawMsg.Humidity)
+	pressure := float32(0)
+
+	deviceName := fmt.Sprintf("%s", msg.Topic())
+	devId := int32(m.DeviceListMap[deviceName].DeviceID)
+	devTypeId := int32(m.DeviceListMap[deviceName].DeviceTypeID)
+
+	sharedParams := sqlc.InsertReadingParams{
+		Timestamp:        ts,
+		TempF:            &tempF,
+		TempC:            &tempC,
+		Humidity:         &humidity,
+		AbsolutePressure: &pressure,
+		DeviceTypeID:     &devTypeId,
+		DeviceID:         &devId,
+	}
+
+	m.Logger.Debug("Shared params",
+		"timestamp", sharedParams.Timestamp,
+		"tempF", *sharedParams.TempF,
+		"tempC", *sharedParams.TempC,
+		"humidity", *sharedParams.Humidity,
+		"absolutePressure", *sharedParams.AbsolutePressure,
+		"deviceTypeID", *sharedParams.DeviceTypeID,
+		"deviceID", *sharedParams.DeviceID,
+	)
+
+	db := sensordb.NewDbWrapper(m.PgPool)
+	defer db.Conn.Release()
+
+	err = db.DB.InsertReading(m.Ctx, sharedParams)
+	if err != nil {
+		m.Logger.Error("Error writing bme280 temp sensor shared data", "error", err)
+	} else {
+		m.Logger.Info("Successful write to shared data", "mqttTopic", msg.Topic(), "deviceType", m.TopicMapping[msg.Topic()].DeviceType, "deviceID", m.TopicMapping[msg.Topic()].DeviceID)
+	}
+}
+
+func (m *MqttService) ProcessBmp280SensorMsg(msg mqtt.Message) {
+	m.Logger.Debug("Processing bmp280 sensor message")
+
+	var rawMsg devices.BMP280
+	err := json.Unmarshal(msg.Payload(), &rawMsg)
+	if err != nil {
+		m.Logger.Error("Error unmarshalling raw bmp280 sensor message", "error", err)
+	}
+
+	m.Logger.Debug("BMP280 raw message", "msg", rawMsg)
+
+	ts := utils.GetUTCTimestamp()
+	tempF := float32(rawMsg.TempF)
+	tempC := float32(rawMsg.TempC)
+	pressure := float32(0)
+
+	deviceName := fmt.Sprintf("%s", msg.Topic())
+	devId := int32(m.DeviceListMap[deviceName].DeviceID)
+	devTypeId := int32(m.DeviceListMap[deviceName].DeviceTypeID)
+
+	sharedParams := sqlc.InsertReadingParams{
+		Timestamp:        ts,
+		TempF:            &tempF,
+		TempC:            &tempC,
+		AbsolutePressure: &pressure,
+		DeviceTypeID:     &devTypeId,
+		DeviceID:         &devId,
+	}
+
+	m.Logger.Debug("Shared params",
+		"timestamp", sharedParams.Timestamp,
+		"tempF", *sharedParams.TempF,
+		"tempC", *sharedParams.TempC,
+		"absolutePressure", *sharedParams.AbsolutePressure,
+		"deviceTypeID", *sharedParams.DeviceTypeID,
+		"deviceID", *sharedParams.DeviceID,
+	)
+
+	db := sensordb.NewDbWrapper(m.PgPool)
+	defer db.Conn.Release()
+
+	err = db.DB.InsertReading(m.Ctx, sharedParams)
+	if err != nil {
+		m.Logger.Error("Error writing bmp280 temp sensor shared data", "error", err)
 	} else {
 		m.Logger.Info("Successful write to shared data", "mqttTopic", msg.Topic(), "deviceType", m.TopicMapping[msg.Topic()].DeviceType, "deviceID", m.TopicMapping[msg.Topic()].DeviceID)
 	}
