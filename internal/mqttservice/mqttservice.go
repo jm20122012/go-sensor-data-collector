@@ -168,7 +168,7 @@ func (m *MqttService) ProcessBme280SensorMsg(msg mqtt.Message) {
 	humidity := float32(rawMsg.Humidity)
 	pressure := float32(0)
 
-	deviceName := fmt.Sprintf("%s", msg.Topic())
+	deviceName := msg.Topic()
 	devId := int32(m.DeviceListMap[deviceName].DeviceID)
 	devTypeId := int32(m.DeviceListMap[deviceName].DeviceTypeID)
 
@@ -219,7 +219,7 @@ func (m *MqttService) ProcessBmp280SensorMsg(msg mqtt.Message) {
 	tempC := float32(rawMsg.TempC)
 	pressure := float32(0)
 
-	deviceName := fmt.Sprintf("%s", msg.Topic())
+	deviceName := msg.Topic()
 	devId := int32(m.DeviceListMap[deviceName].DeviceID)
 	devTypeId := int32(m.DeviceListMap[deviceName].DeviceTypeID)
 
